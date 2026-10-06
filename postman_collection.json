@@ -1,0 +1,55 @@
+{
+  "info": {
+    "name": "Flash Sale - Anti-bot and No Overselling",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "baseUrl", "value": "http://127.0.0.1:8000"},
+    {"key": "userId", "value": "12"},
+    {"key": "purchaseToken", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "1 - Reset demo (deletes old orders)",
+      "request": {"method": "POST", "url": "{{baseUrl}}/demo/reset"}
+    },
+    {
+      "name": "2 - Get token (valid 60 seconds)",
+      "request": {
+        "method": "POST", "url": "{{baseUrl}}/flash-sale/token",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"userId\": {{userId}},\n  \"eventId\": 1,\n  \"productId\": 1\n}"}
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Token created', function () { pm.response.to.have.status(200); });",
+        "if (pm.response.code === 200) pm.collectionVariables.set('purchaseToken', pm.response.json().purchaseToken);"
+      ]}}]
+    },
+    {
+      "name": "3 - Purchase",
+      "request": {
+        "method": "POST", "url": "{{baseUrl}}/flash-sale/purchase",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"userId\": {{userId}},\n  \"eventId\": 1,\n  \"productId\": 1,\n  \"purchaseToken\": \"{{purchaseToken}}\"\n}"}
+      }
+    },
+    {
+      "name": "4 - Replay same token (expect 409 TOKEN_ALREADY_USED)",
+      "request": {
+        "method": "POST", "url": "{{baseUrl}}/flash-sale/purchase",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"userId\": {{userId}},\n  \"eventId\": 1,\n  \"productId\": 1,\n  \"purchaseToken\": \"{{purchaseToken}}\"\n}"}
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('One-time token rejects replay', function () {",
+        "  pm.response.to.have.status(409);",
+        "  pm.expect(pm.response.json().code).to.eql('TOKEN_ALREADY_USED');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "5 - Status",
+      "request": {"method": "GET", "url": "{{baseUrl}}/flash-sale/status"}
+    }
+  ]
+}
